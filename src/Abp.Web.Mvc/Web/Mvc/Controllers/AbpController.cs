@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Net;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
@@ -8,6 +9,7 @@ using System.Web.Mvc;
 using Abp.Application.Features;
 using Abp.Authorization;
 using Abp.Configuration;
+using Abp.Domain.Entities;
 using Abp.Domain.Uow;
 using Abp.Events.Bus;
 using Abp.Events.Bus.Exceptions;
@@ -16,6 +18,7 @@ using Abp.Localization.Sources;
 using Abp.Logging;
 using Abp.Reflection;
 using Abp.Runtime.Session;
+using Abp.Runtime.Validation;
 using Abp.Web.Models;
 using Abp.Web.Mvc.Configuration;
 using Abp.Web.Mvc.Controllers.Results;
@@ -367,6 +370,7 @@ namespace Abp.Web.Mvc.Controllers
             //Return an error response to the client.
             context.HttpContext.Response.Clear();
             context.HttpContext.Response.StatusCode = GetStatusCodeForException(context);
+
             context.Result = MethodInfoHelper.IsJsonResult(_currentMethodInfo)
                 ? GenerateJsonExceptionResult(context)
                 : GenerateNonJsonExceptionResult(context);
@@ -382,15 +386,24 @@ namespace Abp.Web.Mvc.Controllers
 
         protected virtual int GetStatusCodeForException(ExceptionContext context)
         {
-
             if (context.Exception is AbpAuthorizationException)
             {
                 return context.HttpContext.User.Identity.IsAuthenticated
-                    ? 403
-                    : 401;
+                    ? (int)HttpStatusCode.Forbidden
+                    : (int)HttpStatusCode.Unauthorized;
             }
 
-            return 500;
+            if (context.Exception is AbpValidationException)
+            {
+                return (int)HttpStatusCode.BadRequest;
+            }
+
+            if (context.Exception is EntityNotFoundException)
+            {
+                return (int)HttpStatusCode.NotFound;
+            }
+
+            return (int)HttpStatusCode.InternalServerError;
         }
 
         protected virtual ActionResult GenerateJsonExceptionResult(ExceptionContext context)

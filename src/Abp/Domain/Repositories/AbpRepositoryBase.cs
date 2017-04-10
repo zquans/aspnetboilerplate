@@ -72,7 +72,7 @@ namespace Abp.Domain.Repositories
             var entity = FirstOrDefault(id);
             if (entity == null)
             {
-                throw new AbpException("There is no such an entity with given primary key. Entity type: " + typeof(TEntity).FullName + ", primary key: " + id);
+                throw new EntityNotFoundException(typeof(TEntity), id);
             }
 
             return entity;
@@ -83,7 +83,7 @@ namespace Abp.Domain.Repositories
             var entity = await FirstOrDefaultAsync(id);
             if (entity == null)
             {
-                throw new AbpException("There is no such an entity with given primary key. Entity type: " + typeof(TEntity).FullName + ", primary key: " + id);
+                throw new EntityNotFoundException(typeof(TEntity), id);
             }
 
             return entity;
@@ -210,9 +210,10 @@ namespace Abp.Domain.Repositories
             }
         }
 
-        public virtual async Task DeleteAsync(Expression<Func<TEntity, bool>> predicate)
+        public virtual Task DeleteAsync(Expression<Func<TEntity, bool>> predicate)
         {
             Delete(predicate);
+            return Task.FromResult(0);
         }
 
         public virtual int Count()
