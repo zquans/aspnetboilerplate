@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Abp.Collections.Extensions;
+using Abp.Domain.Entities;
 using Abp.Extensions;
+using Abp.Localization;
 using Abp.Runtime.Validation;
 using Abp.UI;
 using Abp.Web.Configuration;
-using Abp.Web.Localization;
 
 namespace Abp.Web.Models
 {
@@ -15,6 +16,7 @@ namespace Abp.Web.Models
     internal class DefaultErrorInfoConverter : IExceptionToErrorInfoConverter
     {
         private readonly IAbpWebCommonModuleConfiguration _configuration;
+        private readonly ILocalizationManager _localizationManager;
 
         public IExceptionToErrorInfoConverter Next { set; private get; }
 
@@ -26,12 +28,27 @@ namespace Abp.Web.Models
             }
         }
 
-        public DefaultErrorInfoConverter(IAbpWebCommonModuleConfiguration configuration)
+        public DefaultErrorInfoConverter(
+            IAbpWebCommonModuleConfiguration configuration, 
+            ILocalizationManager localizationManager)
         {
             _configuration = configuration;
+            _localizationManager = localizationManager;
         }
 
         public ErrorInfo Convert(Exception exception)
+        {
+            var errorInfo = CreateErrorInfoWithoutCode(exception);
+
+            if (exception is IHasErrorCode)
+            {
+                errorInfo.Code = (exception as IHasErrorCode).Code;
+            }
+
+            return errorInfo;
+        }
+
+        private ErrorInfo CreateErrorInfoWithoutCode(Exception exception)
         {
             if (SendAllExceptionsToClients)
             {
@@ -41,7 +58,8 @@ namespace Abp.Web.Models
             if (exception is AggregateException && exception.InnerException != null)
             {
                 var aggException = exception as AggregateException;
-                if (aggException.InnerException is UserFriendlyException || aggException.InnerException is AbpValidationException)
+                if (aggException.InnerException is UserFriendlyException ||
+                    aggException.InnerException is AbpValidationException)
                 {
                     exception = aggException.InnerException;
                 }
@@ -50,16 +68,29 @@ namespace Abp.Web.Models
             if (exception is UserFriendlyException)
             {
                 var userFriendlyException = exception as UserFriendlyException;
-                return new ErrorInfo(userFriendlyException.Code, userFriendlyException.Message, userFriendlyException.Details);
+                return new ErrorInfo(userFriendlyException.Message, userFriendlyException.Details);
             }
 
             if (exception is AbpValidationException)
             {
-                return new ErrorInfo(AbpWebLocalizedMessages.ValidationError)
-                       {
-                           ValidationErrors = GetValidationErrorInfos(exception as AbpValidationException),
-                           Details = GetValidationErrorNarrative(exception as AbpValidationException)
-                       };
+                return new ErrorInfo(L("ValidationError"))
+                {
+                    ValidationErrors = GetValidationErrorInfos(exception as AbpValidationException),
+                    Details = GetValidationErrorNarrative(exception as AbpValidationException)
+                };
+            }
+
+            if (exception is EntityNotFoundException)
+            {
+                var entityNotFoundException = exception as EntityNotFoundException;
+
+                return new ErrorInfo(
+                    string.Format(
+                        L("EntityNotFound"),
+                        entityNotFoundException.EntityType.Name,
+                        entityNotFoundException.Id
+                    )
+                );
             }
 
             if (exception is Abp.Authorization.AbpAuthorizationException)
@@ -68,10 +99,10 @@ namespace Abp.Web.Models
                 return new ErrorInfo(authorizationException.Message);
             }
 
-            return new ErrorInfo(AbpWebLocalizedMessages.InternalServerError);
+            return new ErrorInfo(L("InternalServerError"));
         }
 
-        private static ErrorInfo CreateDetailedErrorInfoFromException(Exception exception)
+        private ErrorInfo CreateDetailedErrorInfoFromException(Exception exception)
         {
             var detailBuilder = new StringBuilder();
 
@@ -87,7 +118,7 @@ namespace Abp.Web.Models
             return errorInfo;
         }
 
-        private static void AddExceptionToDetails(Exception exception, StringBuilder detailBuilder)
+        private void AddExceptionToDetails(Exception exception, StringBuilder detailBuilder)
         {
             //Exception Message
             detailBuilder.AppendLine(exception.GetType().Name + ": " + exception.Message);
@@ -140,7 +171,7 @@ namespace Abp.Web.Models
             }
         }
 
-        private static ValidationErrorInfo[] GetValidationErrorInfos(AbpValidationException validationException)
+        private ValidationErrorInfo[] GetValidationErrorInfos(AbpValidationException validationException)
         {
             var validationErrorInfos = new List<ValidationErrorInfo>();
 
@@ -159,10 +190,10 @@ namespace Abp.Web.Models
             return validationErrorInfos.ToArray();
         }
 
-        private static string GetValidationErrorNarrative(AbpValidationException validationException)
+        private string GetValidationErrorNarrative(AbpValidationException validationException)
         {
             var detailBuilder = new StringBuilder();
-            detailBuilder.AppendLine(AbpWebLocalizedMessages.ValidationNarrativeTitle);
+            detailBuilder.AppendLine(L("ValidationNarrativeTitle"));
             
             foreach (var validationResult in validationException.ValidationErrors)
             {
@@ -171,6 +202,18 @@ namespace Abp.Web.Models
             }
 
             return detailBuilder.ToString();
+        }
+
+        private string L(string name)
+        {
+            try
+            {
+                return _localizationManager.GetString(AbpWebConsts.LocalizaionSourceName, name);
+            }
+            catch (Exception)
+            {
+                return name;
+            }
         }
     }
 }

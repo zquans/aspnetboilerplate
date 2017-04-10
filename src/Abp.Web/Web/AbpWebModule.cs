@@ -2,7 +2,6 @@
 using System.Reflection;
 using System.Web;
 using Abp.Auditing;
-using Abp.Localization.Sources.Xml;
 using Abp.Modules;
 using Abp.Runtime.Session;
 using Abp.Web.Session;
@@ -11,6 +10,7 @@ using Abp.Web.Configuration;
 using Abp.Web.Security.AntiForgery;
 using Abp.Collections.Extensions;
 using Abp.Dependency;
+using Abp.Web.MultiTenancy;
 
 namespace Abp.Web
 {
@@ -27,13 +27,12 @@ namespace Abp.Web
             IocManager.Register<IAbpWebLocalizationConfiguration, AbpWebLocalizationConfiguration>();
             IocManager.Register<IAbpWebModuleConfiguration, AbpWebModuleConfiguration>();
             
-            if (HttpContext.Current != null)
-            {
-                XmlLocalizationSource.RootDirectoryOfApplication = HttpContext.Current.Server.MapPath("~");
-            }
-
             Configuration.ReplaceService<IPrincipalAccessor, HttpContextPrincipalAccessor>(DependencyLifeStyle.Transient);
-            Configuration.ReplaceService<IClientInfoProvider, WebAuditInfoProvider>(DependencyLifeStyle.Transient);
+            Configuration.ReplaceService<IClientInfoProvider, WebClientInfoProvider>(DependencyLifeStyle.Transient);
+
+            Configuration.MultiTenancy.Resolvers.Add<DomainTenantResolveContributor>();
+            Configuration.MultiTenancy.Resolvers.Add<HttpHeaderTenantResolveContributor>();
+            Configuration.MultiTenancy.Resolvers.Add<HttpCookieTenantResolveContributor>();
 
             AddIgnoredTypes();
         }
