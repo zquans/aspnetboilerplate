@@ -8,7 +8,6 @@ using System.Web.Mvc;
 using Abp.Application.Features;
 using Abp.Authorization;
 using Abp.Configuration;
-using Abp.Dependency;
 using Abp.Domain.Uow;
 using Abp.Events.Bus;
 using Abp.Events.Bus.Exceptions;
@@ -112,12 +111,6 @@ namespace Abp.Web.Mvc.Controllers
         public ILogger Logger { get; set; }
 
         /// <summary>
-        /// Gets current session information.
-        /// </summary>
-        [Obsolete("Use AbpSession property instead. CurrentSession will be removed in future releases.")]
-        protected IAbpSession CurrentSession { get { return AbpSession; } }
-
-        /// <summary>
         /// Reference to <see cref="IUnitOfWorkManager"/>.
         /// </summary>
         public IUnitOfWorkManager UnitOfWorkManager
@@ -139,8 +132,6 @@ namespace Abp.Web.Mvc.Controllers
         /// Gets current unit of work.
         /// </summary>
         protected IActiveUnitOfWork CurrentUnitOfWork { get { return UnitOfWorkManager.Current; } }
-
-        public IIocResolver IocResolver { get; set; }
 
         public IAbpMvcConfiguration AbpMvcConfiguration { get; set; }
 
@@ -164,7 +155,6 @@ namespace Abp.Web.Mvc.Controllers
             LocalizationManager = NullLocalizationManager.Instance;
             PermissionChecker = NullPermissionChecker.Instance;
             EventBus = NullEventBus.Instance;
-            IocResolver = IocManager.Instance;
         }
 
         /// <summary>
